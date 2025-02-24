@@ -1,0 +1,135 @@
+import tkinter as tk
+from tkinter import messagebox
+import requests
+import nltk
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import make_pipeline
+from nltk.corpus import stopwords
+
+#  NLTK data stopwords
+nltk.download('stopwords')
+
+# Load dataset nigru
+def load_and_preprocess_data():
+    df = pd.read_csv('path_to_your_dataset.csv')  # Replace with your dataset path
+    df = df.dropna(subset=['text', 'label'])
+    reviews = df['text']
+    labels = df['label']
+    return reviews, labels
+
+# Naive Bayes model on Kaggle dataset
+def train_model():
+    reviews, labels = load_and_preprocess_data()
+
+    X_train, X_test, y_train, y_test = train_test_split(reviews, labels, test_size=0.2, random_state=42)
+
+    # Create a pipeline with CountVectorizer and Naive Bayes
+    model = make_pipeline(CountVectorizer(stop_words=stopwords.words('english')), MultinomialNB())
+    model.fit(X_train, y_train)
+
+    print(f"Model Accuracy: {model.score(X_test, y_test):.2f}")
+    return model
+
+# SentimentAnalyzer class to predict sentiment
+class SentimentAnalyzer:
+    def __init__(self):
+        self.model = train_model()
+
+    def predict_sentiment(self, text):
+        prediction = self.model.predict([text])
+        return "Positive" if prediction[0] == 1 else "Negative"
+
+# Function to fetch news from NewsAPI
+def fetch_news(stock_ticker):
+    api_key = "your_newsapi_key"  # Replace with your NewsAPI key
+    url = f"https://newsapi.org/v2/everything?q={stock_ticker}&apiKey={api_key}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()["articles"]
+    else:
+        raise Exception("Error fetching news. Please check your API key and connection.")
+
+# Function to analyze sentiment of news articles
+def analyze_sentiment(news_articles):
+    sentiments = []
+    for article in news_articles:
+        title = article.get("title", "")
+        description = article.get("description", "")
+        text = title + " " + description
+
+        # Ensure text is not empty
+        if text.strip():
+            sentiment = analyzer.predict_sentiment(text)
+            sentiments.append(sentiment)
+
+    if sentiments:
+        positive = sentiments.count("Positive")
+        negative = sentiments.count("Negative")
+        if positive > negative:
+            return "Positive"
+        elif negative > positive:
+            return "Negative"
+        else:
+            return "Neutral"
+    else:
+        return "Neutral"
+
+# Function to handle UI button click
+def get_sentiment():
+    stock = stock_entry.get()
+    if not stock:
+        messagebox.showerror("Input Error", "Please enter a stock ticker symbol.")
+        return
+
+    try:
+        news_articles = fetch_news(stock)
+        sentiment = analyze_sentiment(news_articles)
+
+        # Display sentiment and news
+        result_label.config(text=f"Market Sentiment: {sentiment}")
+        news_text.delete(1.0, tk.END)
+        for article in news_articles[:5]:  # Display top 5 articles
+            news_text.insert(tk.END, f"Title: {article['title']}\n")
+            news_text.insert(tk.END, f"Description: {article.get('description', 'No Description')}\n\n")
+
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
+# Set up Tkinter UI
+app = tk.Tk()
+app.title("Stock Market Sentiment Analysis")
+app.geometry("800x600")
+app.configure(bg="lightblue")
+
+# Title
+title_label = tk.Label(app, text="Stock Sentiment Analyzer", font=("Helvetica", 18, "bold"), bg="lightblue")
+title_label.pack(pady=10)
+
+# Stock ticker input
+input_frame = tk.Frame(app, bg="lightblue")
+input_frame.pack(pady=10)
+stock_label = tk.Label(input_frame, text="Enter Stock Ticker:", font=("Helvetica", 12), bg="lightblue")
+stock_label.pack(side=tk.LEFT, padx=5)
+stock_entry = tk.Entry(input_frame, width=20, font=("Helvetica", 12))
+stock_entry.pack(side=tk.LEFT, padx=5)
+fetch_button = tk.Button(input_frame, text="Analyze Sentiment", font=("Helvetica", 12), command=get_sentiment)
+fetch_button.pack(side=tk.LEFT, padx=5)
+
+# Result label
+result_label = tk.Label(app, text="Market Sentiment: ", font=("Helvetica", 14), bg="lightblue", fg="blue")
+result_label.pack(pady=10)
+
+# News display
+news_frame = tk.Frame(app)
+news_frame.pack(pady=10, fill=tk.BOTH, expand=True)
+news_scroll = tk.Scrollbar(news_frame)
+news_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+news_text = tk.Text(news_frame, wrap=tk.WORD, yscrollcommand=news_scroll.set, font=("Helvetica", 12))
+news_text.pack(fill=tk.BOTH, expand=True)
+news_scroll.config(command=news_text.yview)
+
+# Start Tkinter loop
+app.mainloop()
