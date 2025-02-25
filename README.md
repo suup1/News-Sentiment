@@ -33,19 +33,22 @@ The top news articles are listed in a scrollable section for user reference.
 ## Installation Guide  
 
 ### **1️⃣ Clone the Repository**  
-```sh
+
 git clone https://github.com/your-username/Stock-Market-Sentiment-Analyzer.git
 cd Stock-Market-Sentiment-Analyzer
-2️⃣ Install Dependencies
+
+### **2️⃣ Install Dependencies**
 Make sure you have Python installed. Then, install the required libraries:
 sh
 Copy
 Edit
 pip install -r requirements.txt
-3️⃣ Set Up API Keys
+
+### **3️⃣ Set Up API Keys**
 Get a NewsAPI key from NewsAPI.
 Open the script and replace "your_newsapi_key" with your actual API key.
-4️⃣ Run the Application
+
+### **4️⃣ Run the Application**
 sh
 Copy
 Edit
