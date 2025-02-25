@@ -35,6 +35,7 @@ The top news articles are listed in a scrollable section for user reference.
 ### **1️⃣ Clone the Repository**  
 
 git clone https://github.com/your-username/Stock-Market-Sentiment-Analyzer.git
+
 cd Stock-Market-Sentiment-Analyzer
 
 ### **2️⃣ Install Dependencies**
