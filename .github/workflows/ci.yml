@@ -24,10 +24,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Verify Dataset Exists
-        run: |
-          ls data
+      - name: Install DVC
+        run: pip install "dvc[azure]"
 
-      - name: Run Training Script
+      - name: Configure DVC Remote
         run: |
-          python src/train.py
+          dvc remote modify azure-remote connection_string "${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}"
+
+      - name: Pull Data
+        run: dvc pull
+
+      - name: Verify Data
+        run: ls data
+
+      - name: Run Training
+        run: python src/train.py
