@@ -1,0 +1,5 @@
+outs:
+- md5: d9114c7b61ca5ec5c9dfade55dbaba8f
+  size: 672006
+  hash: md5
+  path: financial_news.csv

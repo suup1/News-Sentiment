@@ -1,0 +1,18 @@
+schema: '2.0'
+stages:
+  train:
+    cmd: python src/train.py
+    deps:
+    - path: data/financial_news.csv
+      hash: md5
+      md5: d9114c7b61ca5ec5c9dfade55dbaba8f
+      size: 672006
+    - path: src/train.py
+      hash: md5
+      md5: d54fff6158546682abbc97cd7c51dc37
+      size: 2521
+    outs:
+    - path: models/sentiment_model.pkl
+      hash: md5
+      md5: bc1f5ad27d6b1980c2023ae91c22cbcd
+      size: 601673
