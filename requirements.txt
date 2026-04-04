@@ -1,11 +1,18 @@
+# API
 fastapi
 uvicorn
 pydantic
 
+# ML
 numpy
 pandas
 scikit-learn
 joblib
 nltk
 
+# Monitoring + MLOps (NEW)
+mlflow
+scipy
+
+# Testing
 pytest
