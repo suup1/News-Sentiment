@@ -2,6 +2,8 @@ import pandas as pd
 import nltk
 import mlflow
 import mlflow.sklearn
+import os
+import joblib
 
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
@@ -85,15 +87,20 @@ def train_and_log(alpha):
         report_df.to_csv(report_path)
         mlflow.log_artifact(report_path)
 
-        # LOG MODEL (no auto register here)
+        # LOG MODEL TO MLFLOW
         mlflow.sklearn.log_model(
             model,
             artifact_path="model"
         )
 
+        # ✅ NEW: SAVE MODEL LOCALLY (for Jenkins)
+        os.makedirs("models", exist_ok=True)
+        model_path = f"models/model_alpha_{alpha}.pkl"
+        joblib.dump(model, model_path)
+
         print(f"Alpha={alpha} | Accuracy={accuracy:.4f}")
 
-        return accuracy, run.info.run_id
+        return accuracy, run.info.run_id, model
 
 
 # =========================
@@ -107,7 +114,6 @@ def promote_best_model(best_run_id, best_accuracy, threshold=0.65):
         print("Model NOT promoted (below threshold)")
         return
 
-    # Register model manually from best run
     model_uri = f"runs:/{best_run_id}/model"
 
     result = mlflow.register_model(
@@ -115,7 +121,6 @@ def promote_best_model(best_run_id, best_accuracy, threshold=0.65):
         name=MODEL_NAME
     )
 
-    # Set alias (NEW MLFLOW WAY)
     client.set_registered_model_alias(
         name=MODEL_NAME,
         alias="production",
@@ -134,17 +139,23 @@ if __name__ == "__main__":
     best_accuracy = 0
     best_run_id = None
     best_alpha = None
+    best_model = None
 
     for alpha in [0.5, 1.0, 2.0]:
-        acc, run_id = train_and_log(alpha)
+        acc, run_id, model = train_and_log(alpha)
         results[alpha] = acc
 
         if acc > best_accuracy:
             best_accuracy = acc
             best_run_id = run_id
             best_alpha = alpha
+            best_model = model
 
     print(f"\nBEST MODEL: alpha={best_alpha} with accuracy={best_accuracy:.4f}")
+
+    # ✅ NEW: SAVE BEST MODEL (for Jenkins artifact stage)
+    os.makedirs("models", exist_ok=True)
+    joblib.dump(best_model, "models/best_model.pkl")
 
     # PROMOTE BEST MODEL
     promote_best_model(best_run_id, best_accuracy)
