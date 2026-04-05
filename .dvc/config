@@ -1,0 +1,6 @@
+[core]
+    remote = azure-remote
+
+['remote "azure-remote"']
+    url = azure://dvcstore/data
+    account_name = sentimentanalysis1234
