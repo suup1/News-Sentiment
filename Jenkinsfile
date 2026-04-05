@@ -26,10 +26,18 @@ pipeline {
 
         stage('Pull Data (DVC)') {
             steps {
-                withEnv([
-                    "AZURE_STORAGE_ACCOUNT=sentimentanalysis1234",
-                    "AZURE_STORAGE_KEY=${AZURE_KEY}"
-                ]) {
+                withCredentials([string(credentialsId: 'AZURE_KEY', variable: 'AZURE_STORAGE_KEY')]) {
+    withEnv([
+        "AZURE_STORAGE_ACCOUNT=sentimentanalysis1234"
+    ]) {
+        bat '''
+        call venv\\Scripts\\activate
+        echo === PULLING DATA FROM DVC ===
+        dvc pull -v
+        echo === VERIFY DATA ===
+        dir data
+        '''
+    }} {
                     bat '''
                     call venv\\Scripts\\activate
                     echo === PULLING DATA FROM DVC ===
