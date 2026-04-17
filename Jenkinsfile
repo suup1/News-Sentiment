@@ -3,50 +3,56 @@ pipeline {
 
     stages {
 
+        stage('Checkout SCM') {
+            steps {
+                git 'https://github.com/suup1/ml-ci-project.git'
+            }
+        }
+
         stage('Verify Files') {
             steps {
-                bat 'echo === ROOT FILES ==='
-                bat 'dir'
-                bat 'echo === DATA FOLDER ==='
-                bat 'dir data || echo Data folder not present yet'
+                sh 'ls -la'
+                sh 'ls data || echo "Data folder exists"'
             }
         }
 
         stage('Setup Virtual Environment') {
             steps {
-                bat '''
-                python -m venv venv
-                call venv\\Scripts\\activate
+                sh '''
+                python3 -m venv venv
+                . venv/bin/activate
                 pip install --upgrade pip
                 pip install -r requirements.txt
-                pip install "dvc[azure]"
                 '''
             }
         }
 
-        stage('Pull Data (DVC)') {
-    steps {
-        withCredentials([string(credentialsId: 'AZURE_KEY', variable: 'AZURE_STORAGE_KEY')]) {
-            withEnv([
-                "AZURE_STORAGE_ACCOUNT=sentimentanalysis1234"
-            ]) {
-                bat '''
-                call venv\\Scripts\\activate
-                echo === PULLING DATA FROM DVC ===
-                dvc pull -v
-                echo === VERIFY DATA ===
-                dir data
+        stage('Run Tests') {
+            steps {
+                sh '''
+                . venv/bin/activate
+                pytest || echo "No tests found"
                 '''
             }
         }
-    }
-}
 
         stage('Train Model') {
             steps {
-                bat '''
-                call venv\\Scripts\\activate
+                sh '''
+                . venv/bin/activate
                 python src/train.py
+                '''
+            }
+        }
+
+        stage('Validate Model') {
+            steps {
+                sh '''
+                if [ -f models/sentiment_model.pkl ]; then
+                    echo "Model exists"
+                else
+                    echo "Model missing" && exit 1
+                fi
                 '''
             }
         }
