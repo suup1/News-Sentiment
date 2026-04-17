@@ -15,36 +15,56 @@ jobs:
         with:
           python-version: "3.10"
 
-      - run: pip install -r requirements.txt
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m nltk.downloader stopwords
+
 
   test:
     runs-on: ubuntu-latest
     needs: setup
     steps:
       - uses: actions/checkout@v3
-
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
       - run: pip install -r requirements.txt
+      - run: pytest || echo "No tests"
 
-      - run: pytest || echo "No tests found"
 
-  train:
+  dvc_check:
     runs-on: ubuntu-latest
     needs: test
     steps:
       - uses: actions/checkout@v3
 
+      - name: Verify DVC Files
+        run: |
+          ls data
+          ls dvc.yaml
+          echo "DVC pipeline structure verified"
+
+
+  train:
+    runs-on: ubuntu-latest
+    needs: dvc_check
+    steps:
+      - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      - run: pip install -r requirements.txt
-      - run: python -m nltk.downloader stopwords
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
 
-      - run: python src/train.py
+      - name: Reset MLflow DB
+        run: rm -f mlflow.db
+
+      - name: Train Model (MLflow Tracking)
+        run: python src/train.py
+
 
   validate:
     runs-on: ubuntu-latest
@@ -52,9 +72,50 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - run: |
+      - name: Validate Model Output
+        run: |
           if [ -f models/sentiment_model.pkl ]; then
             echo "Model exists"
           else
             echo "Model missing" && exit 1
+          fi
+
+
+  api_check:
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check API File
+        run: |
+          if [ -f src/api.py ]; then
+            echo "API present"
+          else
+            echo "API missing" && exit 1
+          fi
+
+
+  docker_check:
+    runs-on: ubuntu-latest
+    needs: api_check
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build Docker Image
+        run: docker build -t sentiment-api .
+
+
+  monitoring_check:
+    runs-on: ubuntu-latest
+    needs: docker_check
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check Monitoring Script
+        run: |
+          if [ -f src/monitor.py ]; then
+            echo "Monitoring ready"
+          else
+            echo "Monitoring missing" && exit 1
           fi
