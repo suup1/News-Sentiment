@@ -59,15 +59,8 @@ def build_pipeline(alpha):
 # =========================
 # TRAIN + LOG
 # =========================
-def train_and_log(alpha):
+def train_and_log(alpha, X_train, X_test, y_train, y_test):
     with mlflow.start_run(run_name=f"NB_alpha_{alpha}") as run:
-
-        df = load_data()
-        X, y = preprocess(df)
-
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
 
         model = build_pipeline(alpha)
         model.fit(X_train, y_train)
@@ -83,7 +76,7 @@ def train_and_log(alpha):
         report = classification_report(y_test, preds, output_dict=True)
         report_df = pd.DataFrame(report).transpose()
 
-        report_path = "report.csv"
+        report_path = f"report_alpha_{alpha}.csv"
         report_df.to_csv(report_path)
         mlflow.log_artifact(report_path)
 
@@ -93,10 +86,9 @@ def train_and_log(alpha):
             artifact_path="model"
         )
 
-        # ✅ NEW: SAVE MODEL LOCALLY (for Jenkins)
+        # SAVE MODEL VERSION (per alpha)
         os.makedirs("models", exist_ok=True)
-        model_path = f"models/model_alpha_{alpha}.pkl"
-        joblib.dump(model, model_path)
+        joblib.dump(model, f"models/model_alpha_{alpha}.pkl")
 
         print(f"Alpha={alpha} | Accuracy={accuracy:.4f}")
 
@@ -135,6 +127,13 @@ def promote_best_model(best_run_id, best_accuracy, threshold=0.65):
 # =========================
 if __name__ == "__main__":
 
+    df = load_data()
+    X, y = preprocess(df)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+
     results = {}
     best_accuracy = 0
     best_run_id = None
@@ -142,7 +141,7 @@ if __name__ == "__main__":
     best_model = None
 
     for alpha in [0.5, 1.0, 2.0]:
-        acc, run_id, model = train_and_log(alpha)
+        acc, run_id, model = train_and_log(alpha, X_train, X_test, y_train, y_test)
         results[alpha] = acc
 
         if acc > best_accuracy:
@@ -153,9 +152,15 @@ if __name__ == "__main__":
 
     print(f"\nBEST MODEL: alpha={best_alpha} with accuracy={best_accuracy:.4f}")
 
-    # ✅ NEW: SAVE BEST MODEL (for Jenkins artifact stage)
+    # =========================
+    # FINAL DEPLOYMENT MODEL (CRITICAL FIX)
+    # =========================
     os.makedirs("models", exist_ok=True)
-    joblib.dump(best_model, "models/best_model.pkl")
 
-    # PROMOTE BEST MODEL
+    # Save with expected name for CI/Jenkins/API
+    joblib.dump(best_model, "models/sentiment_model.pkl")
+
+    print("Final deployment model saved at models/sentiment_model.pkl")
+
+    # PROMOTE BEST MODEL (MLflow Registry)
     promote_best_model(best_run_id, best_accuracy)
