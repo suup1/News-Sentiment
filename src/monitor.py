@@ -1,11 +1,17 @@
 import pandas as pd
 from scipy.stats import ks_2samp
 import mlflow
+import os
 
 mlflow.set_tracking_uri("sqlite:///mlflow.db")
 
 # Load data
 train = pd.read_csv("data/financial_news.csv", names=["label", "text"], encoding="latin1")
+
+if not os.path.exists("logs/predictions.csv"):
+    print("No predictions found. Skipping monitoring.")
+    exit()
+
 prod = pd.read_csv("logs/predictions.csv")
 
 # Feature comparison (text length proxy)

@@ -14,15 +14,21 @@ from sklearn.metrics import classification_report, accuracy_score
 from mlflow.tracking import MlflowClient
 
 # =========================
-# CONFIG
+# PATH CONFIG (ROBUST)
 # =========================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_PATH = os.path.join(BASE_DIR, "..", "data", "financial_news.csv")
+MODEL_DIR = os.path.join(BASE_DIR, "..", "models")
 
+# =========================
+# MLFLOW CONFIG
+# =========================
 mlflow.set_tracking_uri("sqlite:///mlflow.db")
 mlflow.set_experiment("Default")
 
-nltk.download('stopwords')
+# Download NLTK safely
+nltk.download('stopwords', quiet=True)
 
-DATA_PATH = "data/financial_news.csv"
 MODEL_NAME = "sentiment-model"
 
 
@@ -30,6 +36,9 @@ MODEL_NAME = "sentiment-model"
 # LOAD DATA
 # =========================
 def load_data(path=DATA_PATH):
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"{path} not found")
+
     df = pd.read_csv(
         path,
         encoding="latin1",
@@ -62,17 +71,17 @@ def build_pipeline(alpha):
 def train_and_log(alpha, X_train, X_test, y_train, y_test):
     with mlflow.start_run(run_name=f"NB_alpha_{alpha}") as run:
 
+        mlflow.set_tag("model_type", "NaiveBayes")
+
         model = build_pipeline(alpha)
         model.fit(X_train, y_train)
 
         preds = model.predict(X_test)
         accuracy = accuracy_score(y_test, preds)
 
-        # LOG PARAMS + METRICS
         mlflow.log_param("alpha", alpha)
         mlflow.log_metric("accuracy", accuracy)
 
-        # CLASSIFICATION REPORT
         report = classification_report(y_test, preds, output_dict=True)
         report_df = pd.DataFrame(report).transpose()
 
@@ -80,15 +89,13 @@ def train_and_log(alpha, X_train, X_test, y_train, y_test):
         report_df.to_csv(report_path)
         mlflow.log_artifact(report_path)
 
-        # LOG MODEL TO MLFLOW
         mlflow.sklearn.log_model(
             model,
             artifact_path="model"
         )
 
-        # SAVE MODEL VERSION (per alpha)
-        os.makedirs("models", exist_ok=True)
-        joblib.dump(model, f"models/model_alpha_{alpha}.pkl")
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        joblib.dump(model, os.path.join(MODEL_DIR, f"model_alpha_{alpha}.pkl"))
 
         print(f"Alpha={alpha} | Accuracy={accuracy:.4f}")
 
@@ -153,14 +160,14 @@ if __name__ == "__main__":
     print(f"\nBEST MODEL: alpha={best_alpha} with accuracy={best_accuracy:.4f}")
 
     # =========================
-    # FINAL DEPLOYMENT MODEL (CRITICAL FIX)
+    # FINAL DEPLOYMENT MODEL
     # =========================
-    os.makedirs("models", exist_ok=True)
+    os.makedirs(MODEL_DIR, exist_ok=True)
 
-    # Save with expected name for CI/Jenkins/API
-    joblib.dump(best_model, "models/sentiment_model.pkl")
+    final_model_path = os.path.join(MODEL_DIR, "sentiment_model.pkl")
+    joblib.dump(best_model, final_model_path)
 
-    print("Final deployment model saved at models/sentiment_model.pkl")
+    print(f"Final deployment model saved at {final_model_path}")
 
-    # PROMOTE BEST MODEL (MLflow Registry)
+    # PROMOTE BEST MODEL
     promote_best_model(best_run_id, best_accuracy)
